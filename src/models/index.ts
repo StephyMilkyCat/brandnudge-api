@@ -1,0 +1,23 @@
+import { sequelize } from "../../config/database.js"
+import "./manufacturer.js"
+import "./brand.js"
+import "./category.js"
+import "./retailer.js"
+import "./product.js"
+import "./price-observation.js"
+import "./flattened-product.js"
+import "./flattened-observation.js"
+
+export { Brand } from "./brand.js"
+export { Category } from "./category.js"
+export { Manufacturer } from "./manufacturer.js"
+export { Retailer } from "./retailer.js"
+export { Product } from "./product.js"
+export { PriceObservation } from "./price-observation.js"
+export { FlattenedProduct } from "./flattened-product.js"
+export { FlattenedObservation } from "./flattened-observation.js"
+export { sequelize }
+
+export const initModels = async (): Promise<void> => {
+  await sequelize.authenticate()
+}
