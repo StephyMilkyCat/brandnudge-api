@@ -5,6 +5,7 @@ import {
   Category,
   Manufacturer,
   PriceObservation,
+  PriceTrend,
   Product,
   Retailer,
 } from "../models/index.js"
@@ -14,7 +15,7 @@ import { parseListParams, toOffsetLimit } from "../lib/list-params.js"
 import { fuzzyShould } from "../utils/fuzzy-should.js"
 import { trimParam } from "../utils/trim-param.js"
 
-// ——— Constants / types ———
+// ——— Types ———
 type JoinedObservation = PriceObservation & {
   Product?:
     | (Product & {
@@ -26,7 +27,18 @@ type JoinedObservation = PriceObservation & {
   Retailer?: Retailer | null
 }
 
-// ——— Helpers (non-exported) ———
+type JoinedPriceTrend = PriceTrend & {
+  Product?:
+    | (Product & {
+        Brand?: Brand
+        Category?: Category
+        Manufacturer?: Manufacturer
+      })
+    | null
+  Retailer?: Retailer | null
+}
+
+// ——— Non-exported ———
 /** Build order for searchByAttr. Supports response fields (category, brand, …) and top-level cols. */
 const buildSearchOrder = (
   sortBy: string | undefined,
@@ -115,7 +127,69 @@ const flattenJoinedObservation = (
   }
 }
 
+/** Build product object from a joined price trend row (same for all rows). */
+const toProductObject = (row: JoinedPriceTrend): Record<string, unknown> => {
+  const product = row.Product
+  const base = row.get({ plain: true }) as Record<string, unknown>
+  return {
+    product_id: base.productId,
+    ean: product?.ean ?? null,
+    product_title: product?.productTitle ?? null,
+    image_url: product?.imageUrl ?? null,
+    category: product?.Category?.name ?? null,
+    manufacturer: product?.Manufacturer?.name ?? null,
+    brand: product?.Brand?.name ?? null,
+  }
+}
+
+/** Build a single trend entry (date, retailer, price). */
+const toTrendEntry = (row: JoinedPriceTrend): Record<string, unknown> => {
+  const base = row.get({ plain: true }) as Record<string, unknown>
+  return {
+    date: base.date,
+    retailer_id: base.retailerId,
+    retailer: row.Retailer?.name ?? null,
+    price: base.price,
+  }
+}
+
 // ——— Exported ———
+export const searchByProductId = async (ctx: Context): Promise<void> => {
+  const q = ctx.query as Record<string, unknown>
+  const productId =
+    typeof q.product_id === "string"
+      ? q.product_id.trim()
+      : typeof q.productId === "string"
+        ? q.productId.trim()
+        : undefined
+  if (!productId) {
+    ctx.status = 400
+    ctx.body = { error: "product_id is required" }
+    return
+  }
+  const rows = await PriceTrend.findAll({
+    where: { productId },
+    order: [["date", "ASC"]],
+    include: [
+      {
+        model: Product,
+        required: true,
+        include: [
+          { model: Brand, required: true, attributes: ["name"] },
+          { model: Category, required: true, attributes: ["name"] },
+          { model: Manufacturer, required: true, attributes: ["name"] },
+        ],
+      },
+      { model: Retailer, required: true },
+    ],
+  })
+  const first = rows[0] as JoinedPriceTrend | undefined
+  ctx.body = {
+    product: first ? toProductObject(first) : null,
+    trends: rows.map(r => toTrendEntry(r as JoinedPriceTrend)),
+  }
+}
+
 export const searchByAttr = async (ctx: Context): Promise<void> => {
   const q = ctx.query as Record<string, unknown>
   const params = parseListParams(q)

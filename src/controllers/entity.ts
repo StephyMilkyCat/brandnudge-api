@@ -10,11 +10,6 @@ export const searchEs = async (ctx: Context): Promise<void> => {
   const q = ctx.query as Record<string, unknown>
   const term = typeof q.term === "string" ? q.term.trim() : undefined
   const type = typeof q.type === "string" ? q.type.trim() : undefined
-  if (term === undefined || term === "") {
-    ctx.status = 400
-    ctx.body = { error: "term is required and must be a non-empty string" }
-    return
-  }
   if (type !== undefined && type === "") {
     ctx.status = 400
     ctx.body = { error: "type must be a non-empty string when provided" }
@@ -25,12 +20,13 @@ export const searchEs = async (ctx: Context): Promise<void> => {
   const sortBy = params.sortBy ?? "name"
   const sortOrder = params.sortOrder === "desc" ? "desc" : "asc"
   const sortField = sortBy === "name" ? "name.keyword" : sortBy
+  const hasTerm = term !== undefined && term !== ""
   const query = {
     index: ENTITIES_INDEX,
     query: {
       bool: {
         ...(type ? { must: [{ term: { type } }] } : {}),
-        should: [fuzzyShould("name", term)],
+        should: [hasTerm ? fuzzyShould("name", term) : { match_all: {} }],
         minimum_should_match: 1,
       },
     },
