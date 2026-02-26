@@ -4,6 +4,7 @@ import { ENTITIES_INDEX, entitiesIndexBody } from "../lib/es-indices.js"
 import { parseListParams, toOffsetLimit } from "../lib/list-params.js"
 import { Brand, Category, Manufacturer, Retailer } from "../models/index.js"
 import { fuzzyShould } from "../utils/fuzzy-should.js"
+import { getCategoryPathName } from "../utils/get-category-path-name.js"
 
 export const searchEs = async (ctx: Context): Promise<void> => {
   const q = ctx.query as Record<string, unknown>
@@ -70,6 +71,7 @@ export const syncEs = async (ctx: Context): Promise<void> => {
     Manufacturer.findAll(),
     Retailer.findAll(),
   ])
+  const categoryById = new Map(categories.map(c => [c.id, c]))
   const operations: unknown[] = []
   for (const r of brands) {
     operations.push(
@@ -78,9 +80,10 @@ export const syncEs = async (ctx: Context): Promise<void> => {
     )
   }
   for (const r of categories) {
+    const name = getCategoryPathName(r, categoryById)
     operations.push(
       { index: { _index: ENTITIES_INDEX, _id: r.id } },
-      { type: "category", name: r.name }
+      { type: "category", name }
     )
   }
   for (const r of manufacturers) {

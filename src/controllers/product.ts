@@ -1,11 +1,12 @@
 import type { Context } from "koa"
-import { FlattenedProduct } from "../models/index.js"
 import { esClient } from "../../config/elasticsearch.js"
 import { PRODUCTS_INDEX, productsIndexBody } from "../lib/es-indices.js"
 import { parseListParams, toOffsetLimit } from "../lib/list-params.js"
+import { Category, FlattenedProduct, Product } from "../models/index.js"
 import { buildOrder } from "../utils/build-order.js"
 import { fuzzyShould } from "../utils/fuzzy-should.js"
 import { trimParam } from "../utils/trim-param.js"
+import { getCategoryPathName } from "../utils/get-category-path-name.js"
 
 // ——— Exported ———
 export const listPg = async (ctx: Context): Promise<void> => {
@@ -126,12 +127,24 @@ export const syncEs = async (ctx: Context): Promise<void> => {
       typeof esClient.indices.create
     >[0]["settings"],
   })
-  const rows = await FlattenedProduct.findAll()
+  const [rows, categories, products] = await Promise.all([
+    FlattenedProduct.findAll(),
+    Category.findAll(),
+    Product.findAll({ attributes: ["id", "categoryId"] }),
+  ])
+  const categoryById = new Map(categories.map(c => [c.id, c]))
+  const productCategoryId = new Map(products.map(p => [p.id, p.categoryId]))
   if (rows.length) {
     const operations = rows.flatMap(r => {
+      const categoryId = productCategoryId.get(r.id)
+      const category = categoryId ? categoryById.get(categoryId) : undefined
+      const categoryPath =
+        category != null
+          ? getCategoryPathName(category, categoryById)
+          : r.category
       const doc = {
         ean: r.ean,
-        category: r.category,
+        category: categoryPath,
         manufacturer: r.manufacturer,
         brand: r.brand,
         product_title: r.productTitle,
