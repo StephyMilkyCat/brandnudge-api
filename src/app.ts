@@ -1,6 +1,7 @@
 import Koa from "koa"
 import bodyParser from "koa-bodyparser"
 import {
+  cors,
   paginationMeta,
   responseWrapper,
   sanitizeBody,
@@ -15,6 +16,7 @@ import priceObservation from "./routes/price-observation.js"
 
 const app = new Koa()
 
+app.use(cors)
 app.use(bodyParser())
 app.use(sanitizeBody)
 app.use(responseWrapper)
