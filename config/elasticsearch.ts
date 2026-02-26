@@ -4,6 +4,7 @@ import {
   type TransportRequestParams,
   type TransportRequestOptions,
 } from "@elastic/transport"
+import { logTimestamp } from "../src/utils/log-timestamp.js"
 
 const esHost = process.env.ES_HOST
 const esPort = Number(process.env.ES_PORT)
@@ -27,11 +28,12 @@ class LoggingTransport extends Transport {
     const qs = params.querystring
     const label = body != null ? "body" : qs != null ? "querystring" : null
     const payload = body ?? qs
+    const ts = `${logTimestamp()} [ES]`
     if (label && payload !== undefined) {
-      console.log("\n[ES]", method, path, label + ":")
+      console.log("\n" + ts, method, path, label + ":")
       console.dir(payload, { depth: null })
     } else {
-      console.log("\n[ES]", method, path)
+      console.log("\n" + ts, method, path)
     }
     return super.request(params, options) as Promise<TResponse>
   }

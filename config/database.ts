@@ -1,4 +1,5 @@
 import { Sequelize } from "sequelize"
+import { logTimestamp } from "../src/utils/log-timestamp.js"
 
 const host = process.env.PG_HOST
 const port = Number(process.env.PG_PORT)
@@ -14,7 +15,9 @@ export const sequelize = new Sequelize({
   username: user,
   password: password || undefined,
   database,
-  logging: debugPostgres ? (sql: string) => console.log("\n[SQL]", sql) : false,
+  logging: debugPostgres
+    ? (sql: string) => console.log(`\n${logTimestamp()} [SQL]`, sql)
+    : false,
   define: {
     underscored: false,
     timestamps: false,
