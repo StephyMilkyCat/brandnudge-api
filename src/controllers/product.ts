@@ -5,8 +5,11 @@ import { parseListParams, toOffsetLimit } from "../lib/list-params.js"
 import { Category, FlattenedProduct, Product } from "../models/index.js"
 import { buildOrder } from "../utils/build-order.js"
 import { fuzzyShould } from "../utils/fuzzy-should.js"
-import { trimParam } from "../utils/trim-param.js"
 import { getCategoryPathName } from "../utils/get-category-path-name.js"
+import { lastPartOfDelimitedString } from "../utils/last-part-of-delimited-string.js"
+import { trimParam } from "../utils/trim-param.js"
+
+const CATEGORY_DELIMITER = "."
 
 // ——— Exported ———
 export const listPg = async (ctx: Context): Promise<void> => {
@@ -18,7 +21,11 @@ export const listPg = async (ctx: Context): Promise<void> => {
     limit,
     order: [order],
   })
-  ctx.body = { items: rows, total: count }
+  const items = rows.map(r => ({
+    ...r.toJSON(),
+    category: lastPartOfDelimitedString(r.category, CATEGORY_DELIMITER),
+  }))
+  ctx.body = { items, total: count }
 }
 
 export const searchFullText = async (ctx: Context): Promise<void> => {
@@ -60,10 +67,14 @@ export const searchFullText = async (ctx: Context): Promise<void> => {
   const hits = response.hits
   const total =
     typeof hits.total === "number" ? hits.total : (hits.total?.value ?? 0)
-  const items = (hits.hits ?? []).map(h => ({
-    ...(h._source ?? {}),
-    _id: h._id,
-  }))
+  const items = (hits.hits ?? []).map(h => {
+    const src = (h._source ?? {}) as Record<string, unknown>
+    const category = lastPartOfDelimitedString(
+      src.category as string | undefined,
+      CATEGORY_DELIMITER
+    )
+    return { ...src, category, _id: h._id }
+  })
   ctx.body = { items, total }
 }
 
@@ -106,10 +117,14 @@ export const searchByAttr = async (ctx: Context): Promise<void> => {
   const hits = response.hits
   const total =
     typeof hits.total === "number" ? hits.total : (hits.total?.value ?? 0)
-  const items = (hits.hits ?? []).map(h => ({
-    ...(h._source ?? {}),
-    _id: h._id,
-  }))
+  const items = (hits.hits ?? []).map(h => {
+    const src = (h._source ?? {}) as Record<string, unknown>
+    const category = lastPartOfDelimitedString(
+      src.category as string | undefined,
+      CATEGORY_DELIMITER
+    )
+    return { ...src, category, _id: h._id }
+  })
   ctx.body = { items, total }
 }
 
